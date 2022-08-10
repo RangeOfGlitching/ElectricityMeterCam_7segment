@@ -24,7 +24,7 @@
 #include "soc/soc.h"          //disable brownout problems
 #include "soc/rtc_cntl_reg.h" //disable brownout problems
 #include "NTPClient.h"
-#include <analogWrite.h>
+// #include <analogWrite.h>
 #include "SDCard.h"
 #include "CameraServer.h"
 #include "WifiHelper.h"
@@ -42,16 +42,105 @@ WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
 SDCard sdCard;
-//OCR ocr(ocr_model_28x28_tflite, 28, 28, 10);
-OCR ocr(ocr_model_28x28_c11_tflite, 28, 28, 11);
+OCR *ocr;
+
 CameraServer camServer(settings);
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", 3600);
 
+int DetectDigit(dl_matrix3du_t* frame, const int x, const int y, const int width, const int height, float* confidence);
+KwhInfo AnalyzeFrame(dl_matrix3du_t* frame, const unsigned long unixtime);
+void taskDelay(unsigned long milisec);
+void mqttUpdate();
+void updateConnections();
+void setup()
+{
+    //disable brownout detector
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
+
+    Serial.begin(115200);
+    Serial.println("starting ...");
+    settings.Load();
+
+    sdCard.Mount();
+
+    WifiHelper::Connect();
+
+    if (camServer.InitCamera(false))
+    {
+        camServer.StartServer();
+
+        pinMode(LED_PIN, OUTPUT);
+        digitalWrite(LED_PIN, LOW);
+
+        Serial.println("started");
+    }
+
+    timeClient.begin();
+    mqttClient.setServer(CLOUD, 1883);
+    ocr = new OCR(ocr_model_56x56_c14_Vgg7_own_tf2_6_tflite, 56, 56, 10);
+
+}
+
+void loop()
+{
+    updateConnections();
+
+    const unsigned long unixtime = timeClient.getEpochTime();
+    Serial.println("LEDs an");
+    // digitalWrite(LED_PIN, HIGH);
+    taskDelay(1000);
+    Serial.println("Bild holen");
+    auto* frame = camServer.CaptureFrame(unixtime, &sdCard);    
+    Serial.println("LEDs aus");
+    // digitalWrite(LED_PIN, LOW);
+    
+    if (frame != nullptr)
+    {
+        Serial.println("Auswertung");
+        KwhInfo info = AnalyzeFrame(frame, unixtime);
+        
+        // send result to http://esp32cam/kwh/ endpoint
+        camServer.SetLatestKwh(info);
+
+        // send frame to http://esp32cam/ endpoint
+        camServer.SwapBuffers();
+        
+        // sdCard.WriteToFile("/kwh.csv", String("") + info.unixtime + "\t" + info.kwh + "\t" + info.confidence);
+
+        // send tp MQTT server
+        mqttClient.publish("metercam/confidence", String(info.confidence * 100, 0).c_str());
+        mqttClient.publish("metercam/metervalue", info.result.c_str());
+        // if (info.confidence > 0.6)
+        // {
+            
+        // }
+    }
+
+    if (millis() < 300000) // more frequent updates in first 5 minutes
+    {
+        taskDelay(500);
+    }
+    else
+    {
+        for (int i = 0; i < 120 && !camServer.UserConnected(); i++)
+        {
+            taskDelay(500);
+        }
+    }    
+
+    if (millis() > 24 * 60 * 60 * 1000) // restart esp after 24 hours
+    {
+        Serial.println("Restart");
+        Serial.flush();
+        ESP.restart();
+    }
+}
+
 int DetectDigit(dl_matrix3du_t* frame, const int x, const int y, const int width, const int height, float* confidence)
 {
-    int digit = ocr.PredictDigit(frame, x, y, width, height, confidence);
+    int digit = ocr->PredictDigit(frame, x, y, width, height, confidence);
     uint32_t color = ImageUtils::GetColorFromConfidence(*confidence, MIN_CONFIDENCE, 1.0f);
     ImageUtils::DrawRect(x, y, width, height, color, frame);
     ImageUtils::DrawFillRect(x, y - 4, width * (*confidence), 4, color, frame);
@@ -76,13 +165,17 @@ KwhInfo AnalyzeFrame(dl_matrix3du_t* frame, const unsigned long unixtime)
             const int digit = DetectDigit(frame, bbox.x, bbox.y, bbox.w, bbox.h, &conf);
             info.confidence = std::min(conf, info.confidence);
             info.kwh += pow(10, 5 - i) * digit;
+            if (i==3){
+                info.result += " ";
+            }
+            info.result += String(digit);
+            Serial.println("Kwh " + String(info.result));
         }
     }
 
     uint32_t color = ImageUtils::GetColorFromConfidence(info.confidence, MIN_CONFIDENCE, 1.0f);
     ImageUtils::DrawText(120, 5, color, String("") +  (int)(info.confidence * 100) + "%", frame);
-    ImageUtils::DrawText(190, 5, COLOR_TURQUOISE, String("") + time, frame);
-
+    // ImageUtils::DrawText(190, 5, COLOR_TURQUOISE, String("") + time, frame);
     Serial.println(String("Time: ") + time + String(" VALUE: ") + info.kwh + " kWh (" + (info.confidence * 100) + "%)");
 
     return info;
@@ -101,7 +194,8 @@ void mqttUpdate()
         {
             Serial.print("Attempting MQTT connection...");
             // Attempt to connect
-            if (mqttClient.connect("metercam", USER, PASS))
+            // if (mqttClient.connect("metercam", USER, PASS))
+            if (mqttClient.connect("metercam"))
             {
                 Serial.println("connected");
             }
@@ -133,87 +227,4 @@ void updateConnections()
 
     timeClient.update();
     mqttUpdate();
-}
-
-void setup()
-{
-    //disable brownout detector
-    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
-
-    Serial.begin(115200);
-    Serial.println("starting ...");
-
-    settings.Load();
-
-    sdCard.Mount();
-
-    WifiHelper::Connect();
-
-    if (camServer.InitCamera(false))
-    {
-        camServer.StartServer();
-
-        pinMode(LED_PIN, OUTPUT);
-        digitalWrite(LED_PIN, LOW);
-
-        Serial.println("started");
-    }
-
-    timeClient.begin();
-    mqttClient.setServer(CLOUD, 1883);
-}
-
-void loop()
-{
-    updateConnections();
-
-    const unsigned long unixtime = timeClient.getEpochTime();
-    
-    Serial.println("LEDs an");
-    digitalWrite(LED_PIN, HIGH);
-    taskDelay(1000);
-    Serial.println("Bild holen");
-    auto* frame = camServer.CaptureFrame(unixtime, &sdCard);    
-    Serial.println("LEDs aus");
-    digitalWrite(LED_PIN, LOW);
-    
-    if (frame != nullptr)
-    {
-        Serial.println("Auswertung");
-        KwhInfo info = AnalyzeFrame(frame, unixtime);
-        
-        // send result to http://esp32cam/kwh/ endpoint
-        camServer.SetLatestKwh(info);
-
-        // send frame to http://esp32cam/ endpoint
-        camServer.SwapBuffers();
-        
-        sdCard.WriteToFile("/kwh.csv", String("") + info.unixtime + "\t" + info.kwh + "\t" + info.confidence);
-
-        // send tp MQTT server
-        mqttClient.publish("metercam/confidence", String(info.confidence * 100, 0).c_str());
-        if (info.confidence > 0.9)
-        {
-            mqttClient.publish("metercam/metervalue", String(info.kwh, 1).c_str());
-        }
-    }
-
-    if (millis() < 300000) // more frequent updates in first 5 minutes
-    {
-        taskDelay(500);
-    }
-    else
-    {
-        for (int i = 0; i < 120 && !camServer.UserConnected(); i++)
-        {
-            taskDelay(500);
-        }
-    }    
-
-    if (millis() > 24 * 60 * 60 * 1000) // restart esp after 24 hours
-    {
-        Serial.println("Restart");
-        Serial.flush();
-        ESP.restart();
-    }
 }

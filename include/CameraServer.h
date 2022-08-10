@@ -32,15 +32,16 @@
 #include <sstream>
 #include <functional>
 #include "Settings.h"
-
+#include "dl_lib_matrix3d.h"
 struct KwhInfo
 {
+    String result;
     float kwh;
     float confidence;
     unsigned long unixtime;
 
     KwhInfo() :
-        kwh(0), confidence(0), unixtime(0)
+        kwh(0), confidence(0), unixtime(0), result("")
     {
     }
 };

@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 
-#define NUM_DIGITS 7
+#define NUM_DIGITS 6
 
 struct DigitBBox
 {

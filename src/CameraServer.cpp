@@ -22,7 +22,7 @@
 
 #include "CameraServer.h"
 #include "index.h.html"
-
+#include <vector>
 #define PART_BOUNDARY "123456789000000000000987654321"
 static const char *_STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
 static const char *_STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
@@ -143,9 +143,9 @@ bool CameraServer::InitCamera(const bool flipImage)
     config.pin_sscb_scl = SIOC_GPIO_NUM;
     config.pin_pwdn = PWDN_GPIO_NUM;
     config.pin_reset = RESET_GPIO_NUM;
-    config.xclk_freq_hz = 10000000;
+    config.xclk_freq_hz = 15000000;
     config.pixel_format = PIXFORMAT_JPEG;
-    config.frame_size = FRAMESIZE_QVGA;
+    config.frame_size = FRAMESIZE_VGA;
     config.jpeg_quality = 8;
     config.fb_count = 1;
 
@@ -217,15 +217,15 @@ dl_matrix3du_t* CameraServer::CaptureFrame(const unsigned long timestamp, SDCard
         ImageUtils::DrawText(5, 5, COLOR_RED, String("") + _numCapturedFrames, _backRgbBuffer);
         
         // sd card infos on the bottom
-        if (sdCard != nullptr && sdCard->IsMounted())
-        {
-            ImageUtils::DrawText(160, 210, COLOR_TURQUOISE, String("SD:") + (int)(sdCard->GetFreeSpaceInBytes() / 1024 / 1024) + "MB", _backRgbBuffer);
-        }
+        // if (sdCard != nullptr && sdCard->IsMounted())
+        // {
+        //     ImageUtils::DrawText(160, 210, COLOR_TURQUOISE, String("SD:") + (int)(sdCard->GetFreeSpaceInBytes() / 1024 / 1024) + "MB", _backRgbBuffer);
+        // }
 
-        if (_numStoredFrames > 0)
-        {
-            ImageUtils::DrawText(5, 210, COLOR_TURQUOISE, String("#imgs:") + _numStoredFrames, _backRgbBuffer);
-        }
+        // if (_numStoredFrames > 0)
+        // {
+        //     ImageUtils::DrawText(5, 210, COLOR_TURQUOISE, String("#imgs:") + _numStoredFrames, _backRgbBuffer);
+        // }
     }
 
     if (fb != nullptr)

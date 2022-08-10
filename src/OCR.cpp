@@ -23,7 +23,7 @@
 #include "OCR.h"
 #include <Arduino.h>
 
-constexpr int tensor_pool_size = 64 * 1024;
+constexpr int tensor_pool_size = 223 * 1024;
 
 OCR::OCR(const void* model, const int inputWidth, const int inputHeight, const int outputClasses) :
     _inputWidth(inputWidth),
@@ -93,11 +93,9 @@ int OCR::PredictDigit(const dl_matrix3du_t* frame, const int rectX, const int re
         _input->data.f,
         _inputWidth,
         _inputHeight);
-
     auto end = millis();
     Serial.println(String("Conversion: ") + (end - start) + "ms");
     start = end;
-
     // Run inference on the input data
     if(_interpreter->Invoke() != kTfLiteOk)
     {
