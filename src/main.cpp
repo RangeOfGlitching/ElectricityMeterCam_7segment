@@ -43,9 +43,7 @@ PubSubClient mqttClient(wifiClient);
 
 SDCard sdCard;
 OCR *ocr;
-
 CameraServer camServer(settings);
-
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", 3600);
 
