@@ -25,7 +25,7 @@
 #include "soc/rtc_cntl_reg.h" //disable brownout problems
 #include "NTPClient.h"
 // #include <analogWrite.h>
-#include "SDCard.h"
+// #include "SDCard.h"
 #include "CameraServer.h"
 #include "WifiHelper.h"
 #include "OCR.h"
@@ -41,7 +41,7 @@ Settings settings;
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-SDCard sdCard;
+// SDCard sdCard;
 OCR *ocr;
 CameraServer camServer(settings);
 WiFiUDP ntpUDP;
@@ -61,7 +61,7 @@ void setup()
     Serial.println("starting ...");
     settings.Load();
 
-    sdCard.Mount();
+    // sdCard.Mount();
 
     WifiHelper::Connect();
 
@@ -90,7 +90,8 @@ void loop()
     // digitalWrite(LED_PIN, HIGH);
     taskDelay(1000);
     Serial.println("Bild holen");
-    auto* frame = camServer.CaptureFrame(unixtime, &sdCard);    
+    // auto* frame = camServer.CaptureFrame(unixtime, &sdCard);    
+    auto* frame = camServer.CaptureFrame(unixtime); 
     Serial.println("LEDs aus");
     // digitalWrite(LED_PIN, LOW);
     
@@ -217,11 +218,11 @@ void updateConnections()
         WifiHelper::Connect();
     }
 
-    if (sdCard.IsMounted() && !sdCard.IsWritable())
-    {
-        Serial.println("SD card is readonly or disconnected.");
-        sdCard.Unmount();
-    }
+    // if (sdCard.IsMounted() && !sdCard.IsWritable())
+    // {
+    //     Serial.println("SD card is readonly or disconnected.");
+    //     sdCard.Unmount();
+    // }
 
     timeClient.update();
     mqttUpdate();

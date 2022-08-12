@@ -168,7 +168,8 @@ bool CameraServer::InitCamera(const bool flipImage)
     return true;
 }
 
-dl_matrix3du_t* CameraServer::CaptureFrame(const unsigned long timestamp, SDCard* sdCard)
+// dl_matrix3du_t* CameraServer::CaptureFrame(const unsigned long timestamp, SDCard* sdCard)
+dl_matrix3du_t* CameraServer::CaptureFrame(const unsigned long timestamp)
 {
     camera_fb_t *fb = esp_camera_fb_get();
     if (fb == nullptr)
@@ -179,16 +180,16 @@ dl_matrix3du_t* CameraServer::CaptureFrame(const unsigned long timestamp, SDCard
 
     _numCapturedFrames++;
 
-    if (sdCard != nullptr && sdCard->IsMounted())
-    {
-        File file;
-        if (sdCard->OpenFileForWriting(String("/") + timestamp + ".jpg", file))
-        {
-            file.write(fb->buf, fb->len);
-            file.close();
-            _numStoredFrames++;
-        }
-    }
+    // if (sdCard != nullptr && sdCard->IsMounted())
+    // {
+    //     File file;
+    //     if (sdCard->OpenFileForWriting(String("/") + timestamp + ".jpg", file))
+    //     {
+    //         file.write(fb->buf, fb->len);
+    //         file.close();
+    //         _numStoredFrames++;
+    //     }
+    // }
 
     if (_backRgbBuffer == nullptr)
     {
