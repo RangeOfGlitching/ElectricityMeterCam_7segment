@@ -23,7 +23,7 @@
 #include "OCR.h"
 #include <Arduino.h>
 
-constexpr int tensor_pool_size = 223 * 1024;
+constexpr int tensor_pool_size = 244 * 1024;
 
 OCR::OCR(const void* model, const int inputWidth, const int inputHeight, const int outputClasses) :
     _inputWidth(inputWidth),
