@@ -1,0 +1,15 @@
+#define name1
+#ifdef name1
+	#define WIFI_SSID "xxxxxxxxxx"
+	#define WIFI_KEY "xxxxxxxxxxxx"
+	#define CLOUD "xxxxxxxxxxxxxxxxx"
+#endif
+
+#ifdef name2
+	#define WIFI_SSID "xxxxxxx"
+	#define WIFI_KEY "xxxxxxxxx"
+	#define CLOUD "xxxxxxxxxxxxx"
+#endif
+
+#define USER ""
+#define PASS ""

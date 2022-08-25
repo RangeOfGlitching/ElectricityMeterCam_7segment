@@ -20,38 +20,56 @@
  * SOFTWARE.
  */
 
+#define DEBUG
+// #define mqtt
+// #define LoRa
+// #define FlashLight
+#define softap
+
 #include <Arduino.h>
 #include "soc/soc.h"          //disable brownout problems
 #include "soc/rtc_cntl_reg.h" //disable brownout problems
-#include "NTPClient.h"
 // #include <analogWrite.h>
 // #include "SDCard.h"
 #include "CameraServer.h"
-#include "WifiHelper.h"
 #include "OCR.h"
-#include "PubSubClient.h"
-#include "wifi_config.h"
 #include "Settings.h"
+#include "WebServer.h"
 
 #define LED_PIN 4
 #define MIN_CONFIDENCE 0.4f
 
-Settings settings;
-
+#ifdef mqtt
+#include "NTPClient.h"
+#include "WifiHelper.h"
+#include "PubSubClient.h"
+#include "wifi_config.h"
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
+#endif
 
-// SDCard sdCard;
+#ifdef softap
+#include "softap_helper.h"
+// #include "softap_config.h"
+// Set web server port number to 80
+// WiFiServer server(80);
+#endif
+
+Settings settings;
 OCR *ocr;
 CameraServer camServer(settings);
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", 3600);
+// SDCard sdCard;
+// WiFiUDP ntpUDP;
+// NTPClient timeClient(ntpUDP, "pool.ntp.org", 3600);
 
 int DetectDigit(dl_matrix3du_t* frame, const int x, const int y, const int width, const int height, float* confidence);
-KwhInfo AnalyzeFrame(dl_matrix3du_t* frame, const unsigned long unixtime);
+KwhInfo AnalyzeFrame(dl_matrix3du_t* frame);
 void taskDelay(unsigned long milisec);
+#ifdef mqtt
 void mqttUpdate();
 void updateConnections();
+#endif
+
 void setup()
 {
     //disable brownout detector
@@ -62,43 +80,51 @@ void setup()
     settings.Load();
 
     // sdCard.Mount();
-
+#ifdef mqtt
     WifiHelper::Connect();
-
+#endif
+#ifdef softap
+    softapHelper::Connect();
+#endif
     if (camServer.InitCamera(false))
     {
         camServer.StartServer();
-
+#ifdef FlashLight
         pinMode(LED_PIN, OUTPUT);
         digitalWrite(LED_PIN, LOW);
-
+#endif
         Serial.println("started");
     }
 
-    timeClient.begin();
+    // timeClient.begin();
+    # ifdef mqtt
     mqttClient.setServer(CLOUD, 1883);
+    # endif
     ocr = new OCR(ocr_model_56x56_c14_Vgg7_own_tf2_6_tflite, 56, 56, 10);
 
 }
 
 void loop()
 {
+    #ifdef mqtt
     updateConnections();
-
-    const unsigned long unixtime = timeClient.getEpochTime();
-    Serial.println("LEDs an");
+    #endif
+    // const unsigned long unixtime = timeClient.getEpochTime();
+    // Serial.println("LEDs an");
     // digitalWrite(LED_PIN, HIGH);
-    taskDelay(1000);
-    Serial.println("Bild holen");
+    // taskDelay(1000);
+    // Serial.println("Bild holen");
     // auto* frame = camServer.CaptureFrame(unixtime, &sdCard);    
-    auto* frame = camServer.CaptureFrame(unixtime); 
-    Serial.println("LEDs aus");
+    // auto* frame = camServer.CaptureFrame(unixtime); 
+    auto* frame = camServer.CaptureFrame(); 
+    // Serial.println("LEDs aus");
     // digitalWrite(LED_PIN, LOW);
     
     if (frame != nullptr)
     {
         Serial.println("Auswertung");
-        KwhInfo info = AnalyzeFrame(frame, unixtime);
+        // KwhInfo info = AnalyzeFrame(frame, unixtime);
+        KwhInfo info = AnalyzeFrame(frame);
         
         // send result to http://esp32cam/kwh/ endpoint
         camServer.SetLatestKwh(info);
@@ -107,7 +133,7 @@ void loop()
         camServer.SwapBuffers();
         
         // sdCard.WriteToFile("/kwh.csv", String("") + info.unixtime + "\t" + info.kwh + "\t" + info.confidence);
-
+        #ifdef mqtt
         // send tp MQTT server
         mqttClient.publish("metercam/confidence", String(info.confidence * 100, 0).c_str());
         mqttClient.publish("metercam/metervalue", info.result.c_str());
@@ -115,6 +141,7 @@ void loop()
         // {
             
         // }
+        #endif
     }
 
     if (millis() < 300000) // more frequent updates in first 5 minutes
@@ -147,13 +174,14 @@ int DetectDigit(dl_matrix3du_t* frame, const int x, const int y, const int width
     return digit;
 }
 
-KwhInfo AnalyzeFrame(dl_matrix3du_t* frame, const unsigned long unixtime)
+// KwhInfo AnalyzeFrame(dl_matrix3du_t* frame, const unsigned long unixtime)
+KwhInfo AnalyzeFrame(dl_matrix3du_t* frame)
 {
     KwhInfo info = {};
     info.kwh = 0;
     info.confidence = 1.0;
-    info.unixtime = unixtime;
-    const String time = timeClient.getFormattedTime();
+    // info.unixtime = unixtime;
+    // const String time = timeClient.getFormattedTime();
     
     for (int i = 0; i < NUM_DIGITS; i++)
     {
@@ -175,7 +203,8 @@ KwhInfo AnalyzeFrame(dl_matrix3du_t* frame, const unsigned long unixtime)
     uint32_t color = ImageUtils::GetColorFromConfidence(info.confidence, MIN_CONFIDENCE, 1.0f);
     ImageUtils::DrawText(120, 5, color, String("") +  (int)(info.confidence * 100) + "%", frame);
     // ImageUtils::DrawText(190, 5, COLOR_TURQUOISE, String("") + time, frame);
-    Serial.println(String("Time: ") + time + String(" VALUE: ") + info.kwh + " kWh (" + (info.confidence * 100) + "%)");
+    // Serial.println(String("Time: ") + time + String(" VALUE: ") + info.kwh + " kWh (" + (info.confidence * 100) + "%)");
+    Serial.println(String(" VALUE: ") + info.kwh + " kWh (" + (info.confidence * 100) + "%)");
 
     return info;
 }
@@ -185,6 +214,7 @@ void taskDelay(unsigned long milisec)
     vTaskDelay(milisec);
 }
 
+#ifdef mqtt
 void mqttUpdate()
 {
     if (strlen(CLOUD) > 0)
@@ -210,9 +240,10 @@ void mqttUpdate()
         mqttClient.loop();
     }
 }
-
+#endif
 void updateConnections()
 {
+    #ifdef mqtt
     if (!WiFi.isConnected())
     {
         WifiHelper::Connect();
@@ -224,6 +255,8 @@ void updateConnections()
     //     sdCard.Unmount();
     // }
 
-    timeClient.update();
+    // timeClient.update();
+    
     mqttUpdate();
+    #endif
 }

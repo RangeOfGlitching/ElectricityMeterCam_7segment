@@ -169,7 +169,7 @@ bool CameraServer::InitCamera(const bool flipImage)
 }
 
 // dl_matrix3du_t* CameraServer::CaptureFrame(const unsigned long timestamp, SDCard* sdCard)
-dl_matrix3du_t* CameraServer::CaptureFrame(const unsigned long timestamp)
+dl_matrix3du_t* CameraServer::CaptureFrame()
 {
     camera_fb_t *fb = esp_camera_fb_get();
     if (fb == nullptr)

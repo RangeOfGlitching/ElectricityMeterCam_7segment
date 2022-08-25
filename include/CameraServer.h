@@ -56,7 +56,7 @@ public:
     bool InitCamera(const bool flipImage);
 
     // dl_matrix3du_t* CaptureFrame(const unsigned long timestamp, SDCard* sdCard = nullptr);
-    dl_matrix3du_t* CaptureFrame(const unsigned long timestamp);
+    dl_matrix3du_t* CaptureFrame();
     void SwapBuffers();
     
     void SetLatestKwh(const KwhInfo& info);
