@@ -17,7 +17,7 @@ void Settings::Load()
 {
     xSemaphoreTakeRecursive(_lock, portMAX_DELAY);
     {
-        _preferences.begin(PREF_NAMESPACE, true);
+        _preferences.begin(PREF_NAMESPACE, false);
         const uint32_t left = 19;
         const uint32_t stepSize = 37;
         for (uint32_t i = 0; i < NUM_DIGITS; i++)
